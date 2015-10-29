@@ -10,21 +10,31 @@ object BuildNumberTask {
 
     val formatter = new SimpleDateFormat("'DATE:' dd-MM-yyyy ' | TIME:' hh:mm")
     val buildNumber = getBuildNumber
-    val gitCommand = "git commit -m \"BUILD №" + buildNumber + " | " + formatter.format(Calendar.getInstance().getTime) + "\""
+    val gitCommand = "git commit -m 'BUILD " + buildNumber + "'"// + " | " + formatter.format(Calendar.getInstance().getTime) + "\""
+
+    println("echo " + buildNumber + " > project/build.number")
 
     "echo " + buildNumber + " > project/build.number" !!
 
-    "git add *" !!
+    var s = "cat project/build.number" !!
 
-    gitCommand !!
+    println(s)
 
-    "git push" !!
+    s = "git add project/build.number" !!
+
+    println(s)
+
+    //gitCommand !!
+    //"git push" !!
   }
 
   def getBuildNumber(): Int = {
 
     var buildNumber = 1
     val gitLogOutput = "git log --pretty=format:\"%s\"" !!
+
+    println(gitLogOutput)
+
     val commitMessages = gitLogOutput.split("\n").filter(_ != "")
 
     commitMessages.foreach(m => {
