@@ -1,6 +1,5 @@
 import java.util.Calendar
 import java.text.SimpleDateFormat
-import sbt.Compile
 import sys.process._
 import sbt.Keys._
 
@@ -8,13 +7,12 @@ object BuildNumberTask {
 
   def run(): Unit = {
 
-    val formatter = new SimpleDateFormat("'DATE:' dd-MM-yyyy ' | TIME:' hh:mm")
+    val formatter = new SimpleDateFormat("' | DATE:' dd-MM-yyyy ' | TIME:' hh:mm")
     val buildNumber = getBuildNumber
-    val gitCommand = "git commit -m \"BUILD №" + buildNumber + " | " + formatter.format(Calendar.getInstance().getTime) + "\""
+    val buildMessage = "BUILD #" + buildNumber + formatter.format(Calendar.getInstance().getTime)
+    val gitCommand = "git commit -F project/build.number"
 
-    "echo " + buildNumber + " > project/build.number" !!
-
-    "git add *" !!
+    "git add project/build.number" !!
 
     gitCommand !!
 
@@ -28,8 +26,8 @@ object BuildNumberTask {
     val commitMessages = gitLogOutput.split("\n").filter(_ != "")
 
     commitMessages.foreach(m => {
-      if (buildNumber == 1 && m.startsWith("BUILD №")) {
-        buildNumber = m.replaceAllLiterally("BUILD №", "").split(" ")(0).toInt
+      if (buildNumber == 1 && m.startsWith("BUILD #")) {
+        buildNumber = m.replaceAllLiterally("BUILD #", "").split(" ")(0).toInt
       }
     })
 
