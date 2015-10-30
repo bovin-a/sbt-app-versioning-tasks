@@ -61,13 +61,13 @@ object AppVersioningTasks {
     file.close
 
     // Добавляем этот файл в stage.
-    "git add " + appVersionFile !
+    Process(Seq("git", "add", appVersionFile)) !
 
     // Выполняем локальный коммит.
-    //gitCommand !
+    Process(Seq("git", "commit", "-m", versionMessage)) !
 
     // Отправляем изменения на сервер.
-    //"git push" !
+    Process(Seq("git", "push")) !
 
     // Увеличиваем build-номер.
     incBuild
@@ -104,12 +104,12 @@ object AppVersioningTasks {
           val messageParts = message.split(" ")
 
           // Часть x.x.x разбиваем дополнительно.
-          val versionNumbers = messageParts(1).split(".")
+          val versionNumbers = messageParts(1).split("\\.")
 
           major = versionNumbers(0).toInt
           minor = versionNumbers(1).toInt
           patch = versionNumbers(2).toInt
-          build = messageParts(3).toInt
+          build = messageParts(3).toInt + 1
 
           found = true
         }
