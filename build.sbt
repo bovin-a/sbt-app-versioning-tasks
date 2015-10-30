@@ -1,5 +1,17 @@
 
 name := "manual"
 
-lazy val build = taskKey[Unit]("Build number task")
-build := BuildNumberTask.run()
+lazy val getVersion = taskKey[String]("Return current version of application")
+getVersion := AppVersioningTasks.getVersion()
+
+lazy val incMajor = taskKey[Unit]("Increment major number of application version")
+incMajor := AppVersioningTasks.incMajor()
+
+lazy val incMinor = taskKey[Unit]("Increment minor number of application version")
+incMinor := AppVersioningTasks.incMinor()
+
+lazy val incPatch = taskKey[Unit]("Increment patch number of application version")
+incPatch := AppVersioningTasks.incPatch()
+
+lazy val makeBuild = taskKey[Unit]("Make project build")
+makeBuild := AppVersioningTasks.makeBuild()
