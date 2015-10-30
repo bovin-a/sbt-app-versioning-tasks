@@ -1,8 +1,9 @@
 import java.io.FileWriter
 import java.util.Calendar
 import java.text.SimpleDateFormat
-import scala.sys.process._
+import sbt.Keys.TaskStreams
 
+import scala.sys.process._
 object AppVersioningTasks {
 
   //region Структуры и поля данных
@@ -30,6 +31,9 @@ object AppVersioningTasks {
   // Возвращает строковое представление версии продукта.
   def getVersion(): String = getVersionStruct.toString
 
+  // Печатает строковое представление версии продукта.
+  def printVersion(): Unit = println(getVersionStruct.toString)
+
   // Увеличивает номер major-версии.
   def incMajor(): Unit = {
     val version = getVersionStruct
@@ -49,28 +53,45 @@ object AppVersioningTasks {
   }
 
   // Выполняет сборку.
-  def makeBuild(): Unit = {
+  def makeBuild(s: TaskStreams): Unit = {
 
-    // Формируем сообщение о выполнении сборки.
-    val dateFormatter = new SimpleDateFormat(dateFormat)
-    val versionMessage = versionMessageStart + getVersion + dateFormatter.format(Calendar.getInstance().getTime)
+    try {
 
-    // Записываем сообщение в специальный файл.
-    val file = new FileWriter(appVersionFile)
-    file.write(versionMessage)
-    file.close
+      // Увеличиваем build-номер.
+      incBuild
+      s.log.info("Increment build number: OK")
 
-    // Добавляем этот файл в stage.
-    Process(Seq("git", "add", appVersionFile)) !
+      // Формируем сообщение о выполнении сборки.
+      val dateFormatter = new SimpleDateFormat(dateFormat)
+      val versionMessage = versionMessageStart + getVersion + dateFormatter.format(Calendar.getInstance().getTime)
 
-    // Выполняем локальный коммит.
-    Process(Seq("git", "commit", "-m", versionMessage)) !
+      // Записываем сообщение в специальный файл.
+      val file = new FileWriter(appVersionFile)
+      file.write(versionMessage)
+      file.close
+      s.log.info("Write message to file: OK")
 
-    // Отправляем изменения на сервер.
-    Process(Seq("git", "push")) !
+      // Добавляем этот файл в stage.
+      Process(Seq("git", "add", appVersionFile)) !
 
-    // Увеличиваем build-номер.
-    incBuild
+      s.log.info("Stage file: OK")
+
+
+      // Выполняем локальный коммит.
+      Process(Seq("git", "commit", "-m", versionMessage, "-q")) !
+
+      s.log.info("Local commit: OK")
+
+      // Отправляем изменения на сервер.
+      Process(Seq("git", "push", "-q")) !
+
+      s.log.info("Push to server: OK")
+      s.log.info("Version: " + getVersion)
+    }
+    catch {
+      // В случае ошибки откатываем build-номер.
+      case e: Exception => decBuild
+    }
   }
 
   //endregion
@@ -109,7 +130,7 @@ object AppVersioningTasks {
           major = versionNumbers(0).toInt
           minor = versionNumbers(1).toInt
           patch = versionNumbers(2).toInt
-          build = messageParts(3).toInt + 1
+          build = messageParts(3).toInt
 
           found = true
         }
@@ -125,6 +146,12 @@ object AppVersioningTasks {
   private def incBuild(): Unit = {
     val version = getVersionStruct
     version.build = version.build + 1
+  }
+
+  // Уменьшает build-номер.
+  private def decBuild(): Unit = {
+    val version = getVersionStruct
+    version.build = version.build - 1
   }
 
   //endregion
