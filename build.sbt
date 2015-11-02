@@ -17,4 +17,8 @@ lazy val incPatch = taskKey[Unit]("Increment patch number of application version
 incPatch := AppVersioningTasks.incPatch()
 
 lazy val makeBuild = taskKey[Unit]("Make project build")
-makeBuild := AppVersioningTasks.makeBuild(streams.value)
+makeBuild := AppVersioningTasks.getMakeBuildTaskInitialize.value
+
+lazy val makeForwardBuild = taskKey[Unit]("Make project build")
+makeForwardBuild := AppVersioningTasks.getMakeForwardBuildTaskInitialize.value
+

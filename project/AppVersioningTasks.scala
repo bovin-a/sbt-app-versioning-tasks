@@ -1,9 +1,11 @@
-import java.io.FileWriter
+import java.io.{FileWriter, File}
+import java.nio.file.{Paths, Files}
 import java.util.Calendar
 import java.text.SimpleDateFormat
-import sbt.Keys.TaskStreams
+import sbt.Keys._
+import sbt._
+import scala.sys.process.{ProcessLogger, Process}
 
-import scala.sys.process._
 object AppVersioningTasks {
 
   //region Структуры и поля данных
@@ -23,6 +25,16 @@ object AppVersioningTasks {
   private val dateFormat: String = "' | DATE:' dd-MM-yyyy ' | TIME:' HH:mm"
   // Файл, в котором записана текущая версия продукта.
   private val appVersionFile: String = "project/app.version"
+
+  // Название архива, в который складываются исходники проекта.
+  private val zipName: String = "zakupay"
+
+  // Логгер, использующийся для запуска комманд в bash с помощью Scala, который втихую скрывает все сообщения.
+  private val silentBashLogger = ProcessLogger((o: String) => {}, (e: String) => {})
+
+//  // Общая часть выполнения сборки разных задач.
+//  private val commonBuild = taskKey[Unit]("asdasd")
+//  commonBuild := getCommonBuildTaskInitialize().value
 
   //endregion
 
@@ -52,45 +64,99 @@ object AppVersioningTasks {
     version.patch = version.patch + 1
   }
 
-  // Выполняет сборку.
-  def makeBuild(s: TaskStreams): Unit = {
+  // Возвращает реализацию для задачи, которая будет выполнять сборку проекта.
+  def getMakeBuildTaskInitialize(): Def.Initialize[Task[Unit]] = {
 
-    try {
+    Def.task {
+      val logger: TaskStreams = streams.value
+      val zipFileName = (zipName + "_" + getVersion + ".zip").replace(" ", "_")
 
-      // Увеличиваем build-номер.
-      incBuild
-      s.log.info("Increment build number: OK")
+      // Удаляем скомпилированные классы.
+      clean.value
+      logger.log.info("Clean: OK")
 
-      // Формируем сообщение о выполнении сборки.
-      val dateFormatter = new SimpleDateFormat(dateFormat)
-      val versionMessage = versionMessageStart + getVersion + dateFormatter.format(Calendar.getInstance().getTime)
+      // Удаялем предыдущий архив от сборки.
+      val directory: File = new File("..")
+      directory.listFiles.foreach(file => {
+        if (!file.isDirectory && file.name.contains(zipName) && file.name.contains(".zip")) {
+          file.delete
+        }
+      })
+      logger.log.info("Remove previous zip: OK")
 
-      // Записываем сообщение в специальный файл.
-      val file = new FileWriter(appVersionFile)
-      file.write(versionMessage)
-      file.close
-      s.log.info("Write message to file: OK")
+      // Создаем новый архив.
+      Process(Seq("zip", "-9", "-r", "../" + zipFileName, ".", "-x", "*.git*", "*.idea*", "*zakupay*.zip*")) ! silentBashLogger
 
-      // Добавляем этот файл в stage.
-      Process(Seq("git", "add", appVersionFile)) !
-
-      s.log.info("Stage file: OK")
-
-
-      // Выполняем локальный коммит.
-      Process(Seq("git", "commit", "-m", versionMessage, "-q")) !
-
-      s.log.info("Local commit: OK")
-
-      // Отправляем изменения на сервер.
-      Process(Seq("git", "push", "-q")) !
-
-      s.log.info("Push to server: OK")
-      s.log.info("Version: " + getVersion)
+      logger.log.info("Make new zip: OK")
+      logger.log.info("Version: " + getVersion)
     }
-    catch {
-      // В случае ошибки откатываем build-номер.
-      case e: Exception => decBuild
+  }
+
+  // Возвращает реализацию для задачи, которая будет выполнять сборку проекта c увеличением номера сборки и созданием
+  // якорного коммита.
+  def getMakeForwardBuildTaskInitialize(): Def.Initialize[Task[Unit]] = {
+
+    Def.task {
+
+      val logger: TaskStreams = streams.value
+
+      try {
+        // Увеличиваем build-номер.
+        incBuild
+        logger.log.info("Increment build number: OK")
+
+        // Формируем сообщение о выполнении сборки.
+        val dateFormatter = new SimpleDateFormat(dateFormat)
+        val versionMessage = versionMessageStart + getVersion + dateFormatter.format(Calendar.getInstance().getTime)
+
+        // Записываем сообщение в специальный файл.
+        val file = new FileWriter(appVersionFile)
+        file.write(versionMessage)
+        file.close
+        logger.log.info("Write message to version file: OK")
+
+
+        // Добавляем этот файл в stage.
+        Process(Seq("git", "add", appVersionFile)) !
+
+        logger.log.info("Stage version file: OK")
+
+
+        // Выполняем локальный коммит.
+        Process(Seq("git", "commit", "-m", versionMessage, "-q")) !
+
+        logger.log.info("Local commit: OK")
+
+
+        // Отправляем изменения на сервер.
+        Process(Seq("git", "push", "-q")) !
+
+        logger.log.info("Push to server: OK")
+
+        // Удаляем скомпилированные классы.
+        clean.value
+        logger.log.info("Clean: OK")
+
+        // Удаялем предыдущий архив от сборки.
+        val directory: File = new File("..")
+        directory.listFiles.foreach(file => {
+          if (!file.isDirectory && file.name.contains(zipName) && file.name.contains(".zip")) {
+            file.delete
+          }
+        })
+        logger.log.info("Remove previous zip: OK")
+
+        // Создаем новый архив.
+        val zipFileName = (zipName + "_" + getVersion + ".zip").replace(" ", "_")
+        Process(Seq("zip", "-9", "-r", "../" + zipFileName, ".", "-x", "*.git*", "*.idea*", "*zakupay*.zip*")) ! silentBashLogger
+
+        logger.log.info("Make new zip: OK")
+        logger.log.info("Version: " + getVersion)
+      }
+      catch {
+        // В случае ошибки откатываем build-номер.
+        case e: Exception => decBuild
+      }
     }
   }
 
@@ -110,31 +176,25 @@ object AppVersioningTasks {
       var patch = 1
       var build = 1
 
-      // Извлекаем сообщения коммитов.
-      val gitLogOutput = "git log --pretty=format:%s" !!
-      val commitMessages = gitLogOutput.split("\n").filter(_ != "")
-      var found = false
+      // Проверяем существование файла с номером версии.
+      val isAppVersionFileExists = Files.exists(Paths.get(appVersionFile))
 
-      // Перебираем все сообщения.
-      commitMessages.foreach(message => {
+      if (isAppVersionFileExists) {
 
-        // Ищем первое сообщение, которое начинается с "VERSION" - это последняя выполненная сборка.
-        if (!found && message.startsWith(versionMessageStart)) {
+        // Извлекаем сообщение о номере версии из файла.
+        val versionMessage = ("cat " + appVersionFile !!)
 
-          // Разбиваем на слова.
-          val messageParts = message.split(" ")
+        // Разбиваем сообщение на слова.
+        val messageParts = versionMessage.split(" ")
 
-          // Часть x.x.x разбиваем дополнительно.
-          val versionNumbers = messageParts(1).split("\\.")
+        // Часть x.x.x разбиваем дополнительно.
+        val versionNumbers = messageParts(1).split("\\.")
 
-          major = versionNumbers(0).toInt
-          minor = versionNumbers(1).toInt
-          patch = versionNumbers(2).toInt
-          build = messageParts(3).toInt
-
-          found = true
-        }
-      })
+        major = versionNumbers(0).toInt
+        minor = versionNumbers(1).toInt
+        patch = versionNumbers(2).toInt
+        build = messageParts(3).toInt
+      }
 
       innerVersion = new Version(major, minor, patch, build)
     }
