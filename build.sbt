@@ -19,6 +19,6 @@ incPatch := AppVersioningTasks.incPatch()
 lazy val makeBuild = taskKey[Unit]("Make project build")
 makeBuild := AppVersioningTasks.getMakeBuildTaskInitialize.value
 
-lazy val makeForwardBuild = taskKey[Unit]("Make project build")
+lazy val makeForwardBuild = taskKey[Unit]("Make project build with incrementing build number")
 makeForwardBuild := AppVersioningTasks.getMakeForwardBuildTaskInitialize.value
 
