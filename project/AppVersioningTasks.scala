@@ -14,6 +14,7 @@ object AppVersioningTasks {
   class Version(var major: Int = 0, var minor: Int = 0, var patch: Int = 1, var build: Int = 1) {
 
     override def toString = major + "." + minor + "." + patch + " build " + build
+    def toDebianVersion = major + "." + minor + "." + patch + "." + build
   }
 
   // Внутри объекта храним информацию о версии продукта.
@@ -42,6 +43,9 @@ object AppVersioningTasks {
 
   // Возвращает строковое представление версии продукта.
   def getVersion(): String = getVersionStruct.toString
+
+  // Возвращает строковое представление версии продукта для Debian пакета.
+  def getDebianPackageVersion(): String = getVersionStruct.toDebianVersion
 
   // Печатает строковое представление версии продукта.
   def printVersion(): Unit = println(getVersionStruct.toString)
